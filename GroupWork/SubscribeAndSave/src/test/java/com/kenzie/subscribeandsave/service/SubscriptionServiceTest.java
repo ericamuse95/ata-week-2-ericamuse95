@@ -8,6 +8,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 
 public class SubscriptionServiceTest {
@@ -35,15 +36,15 @@ public class SubscriptionServiceTest {
     @Test
     public void runAllTests() {
         classUnderTest = new SubscriptionService(App.getAmazonIdentityService(), App.getSubscriptionDAO(),
-                                                 App.getAmazonProductService());
+                App.getAmazonProductService());
         boolean pass = true;
 
         pass = subscribe_newSubscription_subscriptionReturned();
         pass = getSubscription_existingSubscription_subscriptionReturned() && pass;
         pass = subscribe_unknownCustomer_exceptionOccurs() && pass;
-        pass = test_bug1() && pass;
-        pass = test_bug2() && pass;
-        pass = test_bug3() && pass;
+        pass = subscribe_unknownAsin_ExceptionOccurs() && pass;
+        pass = subscribe_serviceNotEligible_ExceptionOccurs() && pass;
+        pass = CustomerId_Asin_Swapped() && pass;
 
         if (!pass) {
             String errorMessage = "\n/!\\ /!\\ /!\\ The SubscriptionService tests failed. Test aborted. /!\\ /!\\ /!\\";
@@ -68,7 +69,7 @@ public class SubscriptionServiceTest {
         }
         if (!subscriptionId.equals(result.getId())) {
             System.out.println("   FAIL: Subscription returned when getting subscription by id has mismatching id " +
-                                   "value");
+                    "value");
             return false;
         }
 
@@ -93,7 +94,7 @@ public class SubscriptionServiceTest {
         }
         if (StringUtils.isBlank(result.getId())) {
             System.out.println("   FAIL: Creating subscription should return a subscription with a populated id " +
-                                   "field.");
+                    "field.");
             return false;
         }
 
@@ -119,46 +120,54 @@ public class SubscriptionServiceTest {
         return false;
     }
 
-    // PARTICIPANTS: Fill in the example test below after fixing Bug 1 - refactor as needed
-    public boolean test_bug1() {
-        // GIVEN
-
-        // WHEN
-
-        // THEN
-
-        System.out.println("   FAIL: Need to implement test to fix Bug 1!");
-        return false;
+    //bug 1
+    public boolean subscribe_unknownAsin_ExceptionOccurs() {
+        //GIVEN invalid ASIN
+        String customerID = CUSTOMER_ID;
+        String asin = "B00306IEJB";
+        int frequency = 1;
+        //WHEN/THEN
+        assertThrows(IllegalArgumentException.class, () -> classUnderTest.subscribe(CUSTOMER_ID, asin, frequency), "Service not eligible for subscribe and save.");
+        return true;
     }
 
-    // PARTICIPANTS: Rename and fill in the example test below after fixing Bug 2 - refactor as needed
-    public boolean test_bug2() {
-        // GIVEN
+    //bug 2
+    public boolean subscribe_serviceNotEligible_ExceptionOccurs() {
+        // GIVEN valid customer ID, ineligible product = B07R5QD598, valid frequency
+        String customerID = CUSTOMER_ID;
+        String asin = "B07R5QD598";
+        int frequency = 1;
 
-        // WHEN
-
-        // THEN
-
-        System.out.println("   FAIL: Need to implement test to fix Bug 2!");
-        return false;
+        // WHEN/THEN subscribe to B07R5QD598, throw exception
+        assertThrows(IllegalArgumentException.class, () -> classUnderTest.subscribe(CUSTOMER_ID, asin, frequency), "Service not eligible for subscribe and save.");
+        return true;
     }
+
 
     // PARTICIPANTS: Rename and fill in the example test below after fixing Bug 3 - refactor as needed
-    public boolean test_bug3() {
+    public boolean CustomerId_Asin_Swapped() {
         // GIVEN
+        String subscriptionId = "1dcf9a20-d1c6-41e3-8efd-caa542e231c1";
+        String asin = "B00ILBUEVK";
+        String customerId = "amzn1.account.AEZI3A063427738YROOFT8WCXKDE";
+        int frequency = 1;
 
         // WHEN
-
+        //Query shows customerId and asin are switched places
+        if (classUnderTest.getSubscription(subscriptionId).getAsin().equals(customerId) && classUnderTest.getSubscription(subscriptionId).getCustomerId().equals(asin)) {
+            System.out.println("  PASS: CustomerId and Asin are switched places.");
+            return true;
+        }
         // THEN
-
-        System.out.println("   FAIL: Need to implement test to fix Bug 3!");
+        //  customerId and asin are switched places
+        System.out.println("   FAIL: CustomerId and Asin are not switched places.");
         return false;
     }
 
 
     @BeforeEach
     @AfterEach
-    private void restoreSubscriptions() {
+    public void restoreSubscriptions() {
         SubscriptionRestorer.restoreSubscriptions();
     }
 }
